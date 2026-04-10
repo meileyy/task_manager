@@ -21,7 +21,7 @@ from functools import wraps
 import bcrypt
 import jwt
 from flask import Flask, jsonify, request
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import or_
 
@@ -33,7 +33,7 @@ from sqlalchemy import or_
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{os.path.join(BASE_DIR, 'taskmanager.db')}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -237,6 +237,36 @@ def login():
         "username": user.username,
         "user_id": user.id,
     }), 200
+
+
+@app.route("/reset-password", methods=["POST"])
+@cross_origin()
+def reset_password():
+    if not request.is_json:
+        return jsonify({"error": "Request body must be JSON"}), 400
+
+    data = request.get_json()
+    username = (data.get("username") or "").strip()
+    new_password = data.get("new_password") or ""
+    confirm_password = data.get("confirm_password") or ""
+
+    if not username or not new_password or not confirm_password:
+        return jsonify({"error": "All fields are required"}), 400
+
+    if new_password != confirm_password:
+        return jsonify({"error": "Passwords do not match"}), 400
+
+    if len(new_password) < 4:
+        return jsonify({"error": "Password must be at least 4 characters"}), 400
+
+    user = User.query.filter_by(username=username).first()
+    if user is None:
+        return jsonify({"error": "Username not found"}), 404
+
+    user.set_password(new_password)
+    db.session.commit()
+
+    return jsonify({"message": "Password reset successfully"}), 200
 
 
 # ---------------------------------------------------------------------------
