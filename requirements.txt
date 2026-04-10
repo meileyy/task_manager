@@ -3,10 +3,3 @@ flask-cors
 flask-sqlalchemy
 bcrypt
 pyjwt
-cd ~/Desktop/TASK_MANAGER
-cat > requirements.txt << 'EOF'
-flask
-flask-cors
-flask-sqlalchemy
-bcrypt
-pyjwt
