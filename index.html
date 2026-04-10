@@ -157,6 +157,32 @@
     }
     .auth-form input { height: 48px; width: 100%; }
     .auth-form button { margin-top: 6px; }
+    .forgot-link {
+      text-align: center;
+      margin-top: 2px;
+      font-size: 0.82rem;
+    }
+    .forgot-link a {
+      color: var(--lavender-dk);
+      text-decoration: none;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.2s ease;
+    }
+    .forgot-link a:hover { color: var(--purple-dk); text-decoration: underline; }
+    .back-link {
+      text-align: center;
+      margin-bottom: 16px;
+      font-size: 0.82rem;
+    }
+    .back-link a {
+      color: var(--text-soft);
+      text-decoration: none;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.2s ease;
+    }
+    .back-link a:hover { color: var(--purple-dk); }
 
     /* ---------- Add task form ---------- */
     .add-card {
@@ -436,12 +462,21 @@
         <input type="text" id="loginUsername" placeholder="Username" required autocomplete="username" />
         <input type="password" id="loginPassword" placeholder="Password" required autocomplete="current-password" />
         <button type="submit" class="btn-add">Login</button>
+        <div class="forgot-link"><a id="showResetLink">Forgot Password?</a></div>
       </form>
 
       <form id="registerForm" class="auth-form hidden">
         <input type="text" id="registerUsername" placeholder="Choose a username" required autocomplete="username" />
         <input type="password" id="registerPassword" placeholder="Choose a password (min 4 chars)" required autocomplete="new-password" />
         <button type="submit" class="btn-add">Create account</button>
+      </form>
+
+      <form id="resetForm" class="auth-form hidden">
+        <div class="back-link"><a id="backToLoginLink">&larr; Back to Login</a></div>
+        <input type="text" id="resetUsername" placeholder="Username" required autocomplete="username" />
+        <input type="password" id="resetPassword" placeholder="New password (min 4 chars)" required autocomplete="new-password" />
+        <input type="password" id="resetConfirm" placeholder="Confirm new password" required autocomplete="new-password" />
+        <button type="submit" class="btn-add">Reset Password</button>
       </form>
     </div>
   </div>
@@ -497,8 +532,11 @@
     // --- Auth elements ---
     const loginForm       = document.getElementById("loginForm");
     const registerForm    = document.getElementById("registerForm");
+    const resetForm       = document.getElementById("resetForm");
     const authMessage     = document.getElementById("authMessage");
     const authTabs        = document.querySelectorAll(".auth-tab");
+    const showResetLink   = document.getElementById("showResetLink");
+    const backToLoginLink = document.getElementById("backToLoginLink");
 
     // --- Task elements ---
     const taskForm      = document.getElementById("taskForm");
@@ -579,20 +617,29 @@
     // =========================================================
     // Auth: tab switching
     // =========================================================
+    function showAuthForm(mode) {
+      authMessage.style.display = "none";
+      loginForm.classList.add("hidden");
+      registerForm.classList.add("hidden");
+      resetForm.classList.add("hidden");
+      authTabs.forEach((t) => t.classList.remove("active"));
+      if (mode === "login") {
+        loginForm.classList.remove("hidden");
+        document.querySelector('.auth-tab[data-mode="login"]').classList.add("active");
+      } else if (mode === "register") {
+        registerForm.classList.remove("hidden");
+        document.querySelector('.auth-tab[data-mode="register"]').classList.add("active");
+      } else if (mode === "reset") {
+        resetForm.classList.remove("hidden");
+      }
+    }
+
     authTabs.forEach((tab) => {
-      tab.addEventListener("click", () => {
-        authTabs.forEach((t) => t.classList.remove("active"));
-        tab.classList.add("active");
-        authMessage.style.display = "none";
-        if (tab.dataset.mode === "login") {
-          loginForm.classList.remove("hidden");
-          registerForm.classList.add("hidden");
-        } else {
-          registerForm.classList.remove("hidden");
-          loginForm.classList.add("hidden");
-        }
-      });
+      tab.addEventListener("click", () => showAuthForm(tab.dataset.mode));
     });
+
+    showResetLink.addEventListener("click", () => showAuthForm("reset"));
+    backToLoginLink.addEventListener("click", () => showAuthForm("login"));
 
     // =========================================================
     // Auth: login
@@ -638,6 +685,36 @@
         registerForm.reset();
         // Switch to login tab
         document.querySelector('.auth-tab[data-mode="login"]').click();
+      } catch (err) {
+        showMessage(authMessage, err.message, "error");
+      }
+    });
+
+    // =========================================================
+    // Auth: reset password
+    // =========================================================
+    resetForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const username = document.getElementById("resetUsername").value.trim();
+      const new_password = document.getElementById("resetPassword").value;
+      const confirm_password = document.getElementById("resetConfirm").value;
+
+      if (new_password !== confirm_password) {
+        showMessage(authMessage, "Passwords do not match", "error");
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/reset-password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, new_password, confirm_password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Password reset failed");
+        showMessage(authMessage, "Password reset! You can now log in.", "success");
+        resetForm.reset();
+        showAuthForm("login");
       } catch (err) {
         showMessage(authMessage, err.message, "error");
       }
